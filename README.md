@@ -35,6 +35,31 @@ code-lod status
 code-lod read --format json
 ```
 
+## Why Code LoD?
+
+Reading a project's README and source code works for small projects, but becomes impractical as codebases grow. Code LoD provides several advantages:
+
+**Incremental understanding at scale**
+- LLMs have finite context windows. A large codebase won't fit entirely in context.
+- Code LoD provides hierarchical summaries (project → package → module → class → function) that let you load only the relevant detail level.
+- Drill down from high-level architecture to specific implementation as needed.
+
+**Targeted descriptions for LLMs**
+- READMEs are written for humans. Code LoD descriptions are written for LLMs—focusing on structure, dependencies, contracts, and behavior.
+- Avoids conversational fluff and marketing language that wastes tokens.
+
+**Semantic change detection**
+- AST-based hashing means descriptions only update when code behavior changes, not when you add whitespace or reformat.
+- Revert detection recognizes when code returns to a previous state, avoiding unnecessary regeneration.
+
+**Staleness tracking**
+- Know exactly which descriptions are out-of-date without regenerating everything.
+- Pre-commit hooks ensure descriptions never become stale.
+
+**Dual storage**
+- Database enables fast queries and staleness tracking.
+- `.lod` files alongside source code let you version-control descriptions and read them inline with the code they describe.
+
 ## Commands
 
 | Command | Description |
