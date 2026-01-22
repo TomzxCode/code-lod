@@ -6,7 +6,7 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
-from code_lod.llm.generator import Provider
+from code_lod.llm.description_generator.generator import Provider
 
 
 class Config(BaseModel):

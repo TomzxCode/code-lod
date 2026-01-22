@@ -4,8 +4,6 @@ import os
 from abc import ABC, abstractmethod
 from enum import Enum
 
-from anthropic import Anthropic
-from openai import OpenAI
 from code_lod.models import ParsedEntity, Scope
 
 
@@ -46,50 +44,6 @@ class DescriptionGenerator(ABC):
         Returns:
             List of generated descriptions.
         """
-
-
-class MockDescriptionGenerator(DescriptionGenerator):
-    """Mock generator for testing and initial development.
-
-    This generates simple placeholder descriptions without calling an LLM.
-    """
-
-    def generate(self, entity: ParsedEntity, context: str | None = None) -> str:
-        """Generate a mock description for an entity.
-
-        Args:
-            entity: The code entity to describe.
-            context: Additional context (ignored).
-
-        Returns:
-            Generated description text.
-        """
-        if entity.scope == Scope.FUNCTION:
-            return f"Function {entity.name} in {entity.language}."
-        elif entity.scope == Scope.CLASS:
-            return f"Class {entity.name} in {entity.language}."
-        elif entity.scope == Scope.MODULE:
-            return f"Module {entity.name} written in {entity.language}."
-        elif entity.scope == Scope.PACKAGE:
-            return f"Package {entity.name} containing related modules."
-        elif entity.scope == Scope.PROJECT:
-            return f"Project at {entity.location.path}."
-        else:
-            return f"{entity.scope.value} {entity.name}."
-
-    def generate_batch(
-        self, entities: list[ParsedEntity], context: str | None = None
-    ) -> list[str]:
-        """Generate mock descriptions for multiple entities.
-
-        Args:
-            entities: List of code entities to describe.
-            context: Additional context (ignored).
-
-        Returns:
-            List of generated descriptions.
-        """
-        return [self.generate(entity, context) for entity in entities]
 
 
 class BaseLLMDescriptionGenerator(DescriptionGenerator):
@@ -140,6 +94,10 @@ class BaseLLMDescriptionGenerator(DescriptionGenerator):
         Returns:
             Generated description text.
         """
+        from code_lod.llm.description_generator.mock import (
+            MockDescriptionGenerator,
+        )
+
         prompt = self._get_prompt(entity, context)
         source_for_prompt = self._truncate_source(entity.source)
 
@@ -213,84 +171,6 @@ class BaseLLMDescriptionGenerator(DescriptionGenerator):
         return source
 
 
-class AnthropicDescriptionGenerator(BaseLLMDescriptionGenerator):
-    """Description generator using Anthropic's Claude API."""
-
-    MODEL = "claude-sonnet-4-5-20250929"
-
-    def _create_client(self, api_key: str | None):
-        """Create the Anthropic client.
-
-        Args:
-            api_key: The API key to use.
-
-        Returns:
-            The Anthropic client instance.
-        """
-        return Anthropic(api_key=api_key)
-
-    def _make_api_request(self, prompt: str, source: str) -> str:
-        """Make the Anthropic API request.
-
-        Args:
-            prompt: The formatted prompt.
-            source: The source code.
-
-        Returns:
-            The generated description.
-        """
-        response = self.client.messages.create(
-            model=self.MODEL,
-            max_tokens=1024,
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"{prompt}\n\nSource code:\n```\n{source}\n```",
-                }
-            ],
-        )
-        return response.content[0].text.strip()
-
-
-class OpenAIDescriptionGenerator(BaseLLMDescriptionGenerator):
-    """Description generator using OpenAI's API."""
-
-    MODEL = "gpt-4o"
-
-    def _create_client(self, api_key: str | None):
-        """Create the OpenAI client.
-
-        Args:
-            api_key: The API key to use.
-
-        Returns:
-            The OpenAI client instance.
-        """
-        return OpenAI(api_key=api_key)
-
-    def _make_api_request(self, prompt: str, source: str) -> str:
-        """Make the OpenAI API request.
-
-        Args:
-            prompt: The formatted prompt.
-            source: The source code.
-
-        Returns:
-            The generated description.
-        """
-        response = self.client.chat.completions.create(
-            model=self.MODEL,
-            max_tokens=1024,
-            messages=[
-                {
-                    "role": "user",
-                    "content": f"{prompt}\n\nSource code:\n```\n{source}\n```",
-                }
-            ],
-        )
-        return response.choices[0].message.content.strip()
-
-
 def get_generator(provider: Provider | None = None) -> DescriptionGenerator:
     """Get a description generator instance.
 
@@ -303,6 +183,12 @@ def get_generator(provider: Provider | None = None) -> DescriptionGenerator:
     Raises:
         ValueError: If the provider is not supported.
     """
+    from code_lod.llm.description_generator.anthropic import (
+        AnthropicDescriptionGenerator,
+    )
+    from code_lod.llm.description_generator.mock import MockDescriptionGenerator
+    from code_lod.llm.description_generator.openai import OpenAIDescriptionGenerator
+
     if provider is None:
         # Auto-detect from environment
         if os.getenv("ANTHROPIC_API_KEY"):
