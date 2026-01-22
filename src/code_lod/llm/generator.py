@@ -92,224 +92,203 @@ class MockDescriptionGenerator(DescriptionGenerator):
         return [self.generate(entity, context) for entity in entities]
 
 
-class AnthropicDescriptionGenerator(DescriptionGenerator):
+class BaseLLMDescriptionGenerator(DescriptionGenerator):
+    """Base class for LLM-based description generators."""
+
+    # Subclasses should define these
+    MODEL: str
+    MAX_SOURCE_LENGTH = 8192
+
+    def __init__(self, api_key: str | None = None) -> None:
+        """Initialize the generator.
+
+        Args:
+            api_key: API key. If None, reads from provider-specific env var.
+        """
+        self.client = self._create_client(api_key)
+
+    @abstractmethod
+    def _create_client(self, api_key: str | None):
+        """Create the API client.
+
+        Args:
+            api_key: The API key to use.
+
+        Returns:
+            The API client instance.
+        """
+
+    @abstractmethod
+    def _make_api_request(self, prompt: str, source: str) -> str:
+        """Make the actual API request.
+
+        Args:
+            prompt: The formatted prompt.
+            source: The source code.
+
+        Returns:
+            The generated description.
+        """
+
+    def generate(self, entity: ParsedEntity, context: str | None = None) -> str:
+        """Generate a description for an entity.
+
+        Args:
+            entity: The code entity to describe.
+            context: Additional context about the codebase.
+
+        Returns:
+            Generated description text.
+        """
+        prompt = self._get_prompt(entity, context)
+        source_for_prompt = self._truncate_source(entity.source)
+
+        try:
+            return self._make_api_request(prompt, source_for_prompt)
+        except Exception:
+            # Fallback to mock description on error
+            return MockDescriptionGenerator().generate(entity)
+
+    def generate_batch(
+        self, entities: list[ParsedEntity], context: str | None = None
+    ) -> list[str]:
+        """Generate descriptions for multiple entities.
+
+        Args:
+            entities: List of code entities to describe.
+            context: Additional context about the codebase.
+
+        Returns:
+            List of generated descriptions.
+        """
+        return [self.generate(entity, context) for entity in entities]
+
+    def _get_prompt(self, entity: ParsedEntity, context: str | None) -> str:
+        """Get the appropriate prompt for an entity.
+
+        Args:
+            entity: The code entity.
+            context: Additional context.
+
+        Returns:
+            The prompt to use.
+        """
+        base_context = f"\n\nContext: {context}" if context else ""
+
+        if entity.scope == Scope.FUNCTION:
+            return (
+                _FUNCTION_PROMPT.format(
+                    name=entity.name, language=entity.language, source="{source}"
+                )
+                + base_context
+            )
+        elif entity.scope == Scope.CLASS:
+            return (
+                _CLASS_PROMPT.format(
+                    name=entity.name, language=entity.language, source="{source}"
+                )
+                + base_context
+            )
+        elif entity.scope == Scope.MODULE:
+            return (
+                _MODULE_PROMPT.format(
+                    name=entity.name, language=entity.language, source="{source}"
+                )
+                + base_context
+            )
+        else:
+            return f"Generate a concise 1-2 sentence description for this {entity.scope.value} named {entity.name} in {entity.language}.{base_context}"
+
+    def _truncate_source(self, source: str) -> str:
+        """Truncate source code if too long.
+
+        Args:
+            source: The source code.
+
+        Returns:
+            Truncated source code.
+        """
+        if len(source) > self.MAX_SOURCE_LENGTH:
+            return source[: self.MAX_SOURCE_LENGTH] + "\n... (truncated)"
+        return source
+
+
+class AnthropicDescriptionGenerator(BaseLLMDescriptionGenerator):
     """Description generator using Anthropic's Claude API."""
 
-    # Model to use for generation
     MODEL = "claude-sonnet-4-5-20250929"
 
-    # Maximum source code length to include in prompts
-    MAX_SOURCE_LENGTH = 8192
-
-    def __init__(self, api_key: str | None = None) -> None:
-        """Initialize the Anthropic generator.
+    def _create_client(self, api_key: str | None):
+        """Create the Anthropic client.
 
         Args:
-            api_key: Anthropic API key. If None, reads from ANTHROPIC_API_KEY env var.
-        """
-        self.client = Anthropic(api_key=api_key)
-
-    def generate(self, entity: ParsedEntity, context: str | None = None) -> str:
-        """Generate a description for an entity.
-
-        Args:
-            entity: The code entity to describe.
-            context: Additional context about the codebase.
+            api_key: The API key to use.
 
         Returns:
-            Generated description text.
+            The Anthropic client instance.
         """
-        prompt = self._get_prompt(entity, context)
-        source_for_prompt = self._truncate_source(entity.source)
+        return Anthropic(api_key=api_key)
 
-        try:
-            response = self.client.messages.create(
-                model=self.MODEL,
-                max_tokens=1024,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": f"{prompt}\n\nSource code:\n```\n{source_for_prompt}\n```",
-                    }
-                ],
-            )
-            return response.content[0].text.strip()
-        except Exception:
-            # Fallback to mock description on error
-            return MockDescriptionGenerator().generate(entity)
-
-    def generate_batch(
-        self, entities: list[ParsedEntity], context: str | None = None
-    ) -> list[str]:
-        """Generate descriptions for multiple entities.
+    def _make_api_request(self, prompt: str, source: str) -> str:
+        """Make the Anthropic API request.
 
         Args:
-            entities: List of code entities to describe.
-            context: Additional context about the codebase.
-
-        Returns:
-            List of generated descriptions.
-        """
-        return [self.generate(entity, context) for entity in entities]
-
-    def _get_prompt(self, entity: ParsedEntity, context: str | None) -> str:
-        """Get the appropriate prompt for an entity.
-
-        Args:
-            entity: The code entity.
-            context: Additional context.
-
-        Returns:
-            The prompt to use.
-        """
-        base_context = f"\n\nContext: {context}" if context else ""
-
-        if entity.scope == Scope.FUNCTION:
-            return (
-                _FUNCTION_PROMPT.format(
-                    name=entity.name, language=entity.language, source="{source}"
-                )
-                + base_context
-            )
-        elif entity.scope == Scope.CLASS:
-            return (
-                _CLASS_PROMPT.format(
-                    name=entity.name, language=entity.language, source="{source}"
-                )
-                + base_context
-            )
-        elif entity.scope == Scope.MODULE:
-            return (
-                _MODULE_PROMPT.format(
-                    name=entity.name, language=entity.language, source="{source}"
-                )
-                + base_context
-            )
-        else:
-            return f"Generate a concise 1-2 sentence description for this {entity.scope.value} named {entity.name} in {entity.language}.{base_context}"
-
-    def _truncate_source(self, source: str) -> str:
-        """Truncate source code if too long.
-
-        Args:
+            prompt: The formatted prompt.
             source: The source code.
 
         Returns:
-            Truncated source code.
+            The generated description.
         """
-        if len(source) > self.MAX_SOURCE_LENGTH:
-            return source[: self.MAX_SOURCE_LENGTH] + "\n... (truncated)"
-        return source
+        response = self.client.messages.create(
+            model=self.MODEL,
+            max_tokens=1024,
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"{prompt}\n\nSource code:\n```\n{source}\n```",
+                }
+            ],
+        )
+        return response.content[0].text.strip()
 
 
-class OpenAIDescriptionGenerator(DescriptionGenerator):
+class OpenAIDescriptionGenerator(BaseLLMDescriptionGenerator):
     """Description generator using OpenAI's API."""
 
-    # Model to use for generation
     MODEL = "gpt-4o"
 
-    # Maximum source code length to include in prompts
-    MAX_SOURCE_LENGTH = 8192
-
-    def __init__(self, api_key: str | None = None) -> None:
-        """Initialize the OpenAI generator.
+    def _create_client(self, api_key: str | None):
+        """Create the OpenAI client.
 
         Args:
-            api_key: OpenAI API key. If None, reads from OPENAI_API_KEY env var.
-        """
-        self.client = OpenAI(api_key=api_key)
-
-    def generate(self, entity: ParsedEntity, context: str | None = None) -> str:
-        """Generate a description for an entity.
-
-        Args:
-            entity: The code entity to describe.
-            context: Additional context about the codebase.
+            api_key: The API key to use.
 
         Returns:
-            Generated description text.
+            The OpenAI client instance.
         """
-        prompt = self._get_prompt(entity, context)
-        source_for_prompt = self._truncate_source(entity.source)
+        return OpenAI(api_key=api_key)
 
-        try:
-            response = self.client.chat.completions.create(
-                model=self.MODEL,
-                max_tokens=1024,
-                messages=[
-                    {
-                        "role": "user",
-                        "content": f"{prompt}\n\nSource code:\n```\n{source_for_prompt}\n```",
-                    }
-                ],
-            )
-            return response.choices[0].message.content.strip()
-        except Exception:
-            # Fallback to mock description on error
-            return MockDescriptionGenerator().generate(entity)
-
-    def generate_batch(
-        self, entities: list[ParsedEntity], context: str | None = None
-    ) -> list[str]:
-        """Generate descriptions for multiple entities.
+    def _make_api_request(self, prompt: str, source: str) -> str:
+        """Make the OpenAI API request.
 
         Args:
-            entities: List of code entities to describe.
-            context: Additional context about the codebase.
-
-        Returns:
-            List of generated descriptions.
-        """
-        return [self.generate(entity, context) for entity in entities]
-
-    def _get_prompt(self, entity: ParsedEntity, context: str | None) -> str:
-        """Get the appropriate prompt for an entity.
-
-        Args:
-            entity: The code entity.
-            context: Additional context.
-
-        Returns:
-            The prompt to use.
-        """
-        base_context = f"\n\nContext: {context}" if context else ""
-
-        if entity.scope == Scope.FUNCTION:
-            return (
-                _FUNCTION_PROMPT.format(
-                    name=entity.name, language=entity.language, source="{source}"
-                )
-                + base_context
-            )
-        elif entity.scope == Scope.CLASS:
-            return (
-                _CLASS_PROMPT.format(
-                    name=entity.name, language=entity.language, source="{source}"
-                )
-                + base_context
-            )
-        elif entity.scope == Scope.MODULE:
-            return (
-                _MODULE_PROMPT.format(
-                    name=entity.name, language=entity.language, source="{source}"
-                )
-                + base_context
-            )
-        else:
-            return f"Generate a concise 1-2 sentence description for this {entity.scope.value} named {entity.name} in {entity.language}.{base_context}"
-
-    def _truncate_source(self, source: str) -> str:
-        """Truncate source code if too long.
-
-        Args:
+            prompt: The formatted prompt.
             source: The source code.
 
         Returns:
-            Truncated source code.
+            The generated description.
         """
-        if len(source) > self.MAX_SOURCE_LENGTH:
-            return source[: self.MAX_SOURCE_LENGTH] + "\n... (truncated)"
-        return source
+        response = self.client.chat.completions.create(
+            model=self.MODEL,
+            max_tokens=1024,
+            messages=[
+                {
+                    "role": "user",
+                    "content": f"{prompt}\n\nSource code:\n```\n{source}\n```",
+                }
+            ],
+        )
+        return response.choices[0].message.content.strip()
 
 
 def get_generator(provider: Provider | None = None) -> DescriptionGenerator:
