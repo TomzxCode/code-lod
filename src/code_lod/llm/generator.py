@@ -96,7 +96,7 @@ class AnthropicDescriptionGenerator(DescriptionGenerator):
     """Description generator using Anthropic's Claude API."""
 
     # Model to use for generation
-    MODEL = "claude-4-5-sonnet-20250929"
+    MODEL = "claude-sonnet-4-5-20250929"
 
     # Maximum source code length to include in prompts
     MAX_SOURCE_LENGTH = 8192
