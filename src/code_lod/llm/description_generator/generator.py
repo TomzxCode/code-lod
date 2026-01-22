@@ -187,6 +187,9 @@ def get_generator(provider: Provider | None = None) -> DescriptionGenerator:
         AnthropicDescriptionGenerator,
     )
     from code_lod.llm.description_generator.mock import MockDescriptionGenerator
+    from code_lod.llm.description_generator.ollama import (
+        OllamaDescriptionGenerator,
+    )
     from code_lod.llm.description_generator.openai import OpenAIDescriptionGenerator
 
     if provider is None:
@@ -205,6 +208,8 @@ def get_generator(provider: Provider | None = None) -> DescriptionGenerator:
         return AnthropicDescriptionGenerator()
     elif provider == Provider.OPENAI:
         return OpenAIDescriptionGenerator()
+    elif provider == Provider.OLLAMA:
+        return OllamaDescriptionGenerator()
     else:
         raise ValueError(f"Provider {provider} not yet implemented")
 
