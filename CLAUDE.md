@@ -52,13 +52,29 @@ Code LoD is a CLI tool that generates and manages code descriptions at different
 
 ```
 src/code_lod/
-├── cli.py              # Main Typer CLI commands
-├── config.py           # Config/Paths management
+├── cli/                # Typer CLI commands (one file per command)
+│   ├── __init__.py     # Main app entry point
+│   ├── clean.py        # Clean all code-lod data
+│   ├── config.py       # Configuration management
+│   ├── generate.py     # Generate descriptions
+│   ├── hooks.py        # Git hooks installation
+│   ├── init.py         # Initialize code-lod
+│   ├── read.py         # Output descriptions
+│   ├── status.py       # Check freshness status
+│   ├── update.py       # Update stale descriptions
+│   └── validate.py     # Validate descriptions
+├── config.py           # Paths management
 ├── db.py               # SQLite hash index
 ├── hashing.py          # AST hash computation
 ├── models.py           # Pydantic data models
 ├── staleness.py        # StalenessTracker
-├── llm/                # LLM generator abstraction
+├── llm/
+│   ├── __init__.py
+│   └── description_generator/  # LLM generator abstraction
+│       ├── generator.py  # BaseGenerator interface
+│       ├── anthropic.py  # Anthropic Claude provider
+│       ├── openai.py     # OpenAI provider
+│       └── mock.py       # Mock generator for testing
 ├── parsers/            # BaseParser, tree-sitter implementations
 └── lod_file/           # .lod file read/write/comment parsing
 ```

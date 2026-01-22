@@ -75,6 +75,16 @@ Reading a project's README and source code works for small projects, but becomes
 
 ## Architecture
 
+Code LoD generates, manages, and updates code descriptions through a multi-layered pipeline:
+
+1. **Parsing** (`parsers/`): Tree-sitter based parsers extract code entities (functions, classes, modules) with AST hashes
+2. **Hashing** (`hashing.py`): AST hashes are computed on normalized source to detect semantic changes
+3. **Staleness Tracking** (`staleness.py`): Uses the hash index to determine if descriptions need regeneration
+4. **Generation** (`llm/description_generator/`): Abstract `BaseGenerator` interface for LLM providers (Anthropic, OpenAI, Mock)
+5. **Storage** (`db.py`, `lod_file/`): Dual storage system with SQLite database and `.lod` files
+
+### Storage
+
 Code LoD uses a dual storage system:
 
 1. **SQLite database** (`hash_index.db`) - Stores metadata, hashes, and descriptions with staleness tracking (should not be version controlled)
