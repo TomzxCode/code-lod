@@ -39,19 +39,23 @@ Code LoD uses a modular architecture with clear separation of concerns:
 
 ## Components
 
-### CLI Layer (`cli.py`)
+### CLI Layer (`cli/`)
 
-Built with [Typer](https://typer.tiangolo.com/), the CLI provides all user-facing commands:
+Built with [Typer](https://typer.tiangolo.com/), the CLI provides all user-facing commands. Each command is implemented in its own module:
 
-| Command | Handler |
-|---------|---------|
-| `init` | Creates project structure and config |
-| `generate` | Parses code, generates descriptions |
-| `status` | Reports freshness status |
-| `validate` | Checks for stale descriptions |
-| `update` | Regenerates stale descriptions |
-| `read` | Outputs descriptions for LLMs |
-| `install-hook` | Installs git hooks |
+| Command | Handler | Description |
+|---------|---------|-------------|
+| `init` | `cli/init.py` | Creates project structure and config |
+| `generate` | `cli/generate.py` | Parses code, generates descriptions |
+| `status` | `cli/status.py` | Reports freshness status |
+| `validate` | `cli/validate.py` | Checks for stale descriptions |
+| `update` | `cli/update.py` | Regenerates stale descriptions |
+| `read` | `cli/read.py` | Outputs descriptions for LLMs |
+| `config` | `cli/config.py` | Get/set configuration values |
+| `config set-model` | `cli/config.py` | Configure LLM models per scope |
+| `install-hook` | `cli/hooks.py` | Installs git hooks |
+| `uninstall-hook` | `cli/hooks.py` | Removes git hooks |
+| `clean` | `cli/clean.py` | Removes all code-lod data |
 
 ### Parser Layer (`parsers/`)
 
@@ -166,22 +170,67 @@ def authenticate_user(username: str, password: str) -> str:
 - **SQLite**: Fast lookups, caching, revert detection
 - **.lod files**: Human-readable, version-controlled, LLM-consumable
 
-### LLM Integration (`llm/`)
+### LLM Integration (`llm/description_generator/`)
 
-Abstract interface for description generation:
+Abstract interface for description generation with multiple provider implementations:
 
 ```python
-class BaseGenerator(ABC):
-    @abstractmethod
-    def generate(self, entity: ParsedEntity) -> str:
-        """Generate a description for a code entity."""
+class Provider(str, Enum):
+    OPENAI = "openai"
+    ANTHROPIC = "anthropic"
+    OLLAMA = "ollama"
+    MOCK = "mock"
+
+def get_generator(
+    provider: Provider | None = None,
+    model: str | None = None,
+) -> DescriptionGenerator:
+    """Get a description generator instance."""
 ```
 
-Currently uses a mock generator. Planned providers:
+#### Provider Implementations
 
-- OpenAI (GPT-4, o1)
-- Anthropic (Claude)
-- Ollama (local models)
+**OpenAI** (`openai.py`): GPT-4, GPT-4o, GPT-3.5-turbo via `openai` package
+
+**Anthropic** (`anthropic.py`): Claude Sonnet, Claude Haiku, Claude Opus via `anthropic` package
+
+**Ollama** (`ollama.py`): Local models (codellama, mistral, llama2, etc.) via `ollama` package
+
+**Mock** (`mock.py`): Placeholder descriptions for testing (no API key required)
+
+#### Auto-Detection
+
+The `get_generator()` function auto-detects providers from environment variables:
+1. Checks `ANTHROPIC_API_KEY` → uses Anthropic
+2. Checks `OPENAI_API_KEY` → uses OpenAI
+3. Falls back to Mock generator
+
+#### Scope-Specific Models
+
+Configure different models for different hierarchical scopes:
+
+```bash
+code-lod config set-model --scope function --provider openai --model gpt-4o
+code-lod config set-model --scope project --provider anthropic --model claude-sonnet
+```
+
+#### Base Generator Interface
+
+```python
+class DescriptionGenerator(ABC):
+    @abstractmethod
+    def generate(self, entity: ParsedEntity, context: str | None = None) -> str:
+        """Generate a description for a code entity."""
+
+    @abstractmethod
+    def generate_batch(self, entities: list[ParsedEntity], context: str | None = None) -> list[str]:
+        """Generate descriptions for multiple entities."""
+```
+
+The `BaseLLMDescriptionGenerator` provides:
+- Prompt templates for function, class, and module scopes
+- Source truncation for large code blocks
+- Automatic fallback to mock on API errors
 
 ## Data Models
 
@@ -215,15 +264,31 @@ class ParsedEntity:
 ```
 src/code_lod/
 ├── __init__.py
-├── cli.py              # Main CLI commands
-├── config.py           # Configuration management
+├── __main__.py         # Entry point
+├── cli/                # CLI commands (one per file)
+│   ├── __init__.py     # Main app, command registration
+│   ├── clean.py        # Clean command
+│   ├── config.py       # Config and set-model commands
+│   ├── generate.py     # Generate command
+│   ├── hooks.py        # install-hook, uninstall-hook
+│   ├── init.py         # Init command
+│   ├── read.py         # Read command
+│   ├── status.py       # Status command
+│   ├── update.py       # Update command
+│   └── validate.py     # Validate command
+├── config.py           # Configuration and paths management
 ├── db.py               # SQLite database layer
 ├── hashing.py          # AST hash computation
 ├── models.py           # Pydantic data models
 ├── staleness.py        # Staleness tracking
 ├── llm/                # LLM integration
 │   ├── __init__.py
-│   └── generator.py    # Base generator interface
+│   └── description_generator/
+│       ├── generator.py    # Base classes, Provider enum, get_generator()
+│       ├── anthropic.py    # Anthropic Claude provider
+│       ├── openai.py       # OpenAI provider
+│       ├── ollama.py       # Ollama local models provider
+│       └── mock.py         # Mock generator for testing
 ├── parsers/            # Code parsers
 │   ├── __init__.py
 │   ├── base.py         # BaseParser interface

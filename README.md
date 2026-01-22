@@ -70,7 +70,10 @@ Reading a project's README and source code works for small projects, but becomes
 | `validate` | Validate description freshness |
 | `update` | Update stale descriptions |
 | `read` | Output descriptions in LLM-consumable format |
+| `config` | Get or set configuration values |
+| `config set-model` | Configure LLM models per scope |
 | `install-hook` | Install git pre-commit hook |
+| `uninstall-hook` | Remove git hook |
 | `clean` | Remove all code-lod data |
 
 ## Architecture
@@ -80,7 +83,7 @@ Code LoD generates, manages, and updates code descriptions through a multi-layer
 1. **Parsing** (`parsers/`): Tree-sitter based parsers extract code entities (functions, classes, modules) with AST hashes
 2. **Hashing** (`hashing.py`): AST hashes are computed on normalized source to detect semantic changes
 3. **Staleness Tracking** (`staleness.py`): Uses the hash index to determine if descriptions need regeneration
-4. **Generation** (`llm/description_generator/`): Abstract `BaseGenerator` interface for LLM providers (Anthropic, OpenAI, Mock)
+4. **Generation** (`llm/description_generator/`): LLM provider implementations (OpenAI, Anthropic, Ollama, Mock) with auto-detection and scope-specific model selection
 5. **Storage** (`db.py`, `lod_file/`): Dual storage system with SQLite database and `.lod` files
 
 ### Storage
@@ -91,6 +94,46 @@ Code LoD uses a dual storage system:
 2. **`.lod` files** - Structured comment files alongside source code with `@lod` annotations
 
 Descriptions are organized by hierarchical scope: `project` > `package` > `module` > `class` > `function`.
+
+## LLM Provider Configuration
+
+Code LoD supports multiple LLM providers for generating descriptions:
+
+### Supported Providers
+
+- **OpenAI**: GPT-4, GPT-4o, GPT-3.5-turbo
+- **Anthropic**: Claude Sonnet, Claude Haiku, Claude Opus
+- **Ollama**: Local models (e.g., llama2, mistral, codellama)
+- **Mock**: Placeholder descriptions for testing (no API key required)
+
+### Configuration
+
+Set your API key via environment variables:
+
+```bash
+# For OpenAI
+export OPENAI_API_KEY="sk-..."
+
+# For Anthropic
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+Code LoD auto-detects the available provider from environment variables. Configure different models for different scopes:
+
+```bash
+# Set model for all scopes
+code-lod config set-model --provider openai --model gpt-4o
+
+# Set model for specific scope
+code-lod config set-model --scope function --provider openai --model gpt-4o
+code-lod config set-model --scope project --provider anthropic --model claude-sonnet
+```
+
+For Ollama (local models):
+
+```bash
+code-lod config set-model --provider ollama --model codellama
+```
 
 ## Development
 

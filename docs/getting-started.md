@@ -45,6 +45,58 @@ code-lod init --language python --language javascript --language go
 
 Supported languages include: Python, JavaScript, TypeScript, Go, Rust, Java, C, C++, C#, Ruby, PHP, Swift, Kotlin, and more.
 
+## LLM Provider Configuration
+
+Code LoD supports multiple LLM providers for generating descriptions. Set up your preferred provider:
+
+### OpenAI
+
+```bash
+export OPENAI_API_KEY="sk-..."
+code-lod config set-model --provider openai --model gpt-4o
+```
+
+### Anthropic Claude
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+code-lod config set-model --provider anthropic --model claude-sonnet
+```
+
+### Ollama (Local Models)
+
+```bash
+# Ensure Ollama is running locally
+code-lod config set-model --provider ollama --model codellama
+```
+
+### Mock (Testing)
+
+No API key required:
+
+```bash
+code-lod config set-model --provider mock
+```
+
+### Auto-Detection
+
+If you don't configure a provider, Code LoD automatically detects from environment variables:
+- `ANTHROPIC_API_KEY` → uses Anthropic
+- `OPENAI_API_KEY` → uses OpenAI
+- None found → uses Mock (no API required)
+
+### Scope-Specific Models
+
+Configure different models for different scopes:
+
+```bash
+# Use a faster model for functions
+code-lod config set-model --scope function --provider openai --model gpt-4o
+
+# Use a more capable model for project-level descriptions
+code-lod config set-model --scope project --provider anthropic --model claude-sonnet
+```
+
 ## Generating Descriptions
 
 ### Basic generation

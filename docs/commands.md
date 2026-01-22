@@ -379,5 +379,49 @@ code-lod config languages
 code-lod config languages python,javascript
 ```
 
+---
+
+## `config set-model`
+
+Configure LLM models per scope.
+
+```bash
+code-lod config set-model [OPTIONS]
+```
+
+### Options
+
+| Option | Short | Default | Description |
+|--------|-------|---------|-------------|
+| `--scope` | `-s` | `None` | Scope to configure (project, package, module, class, function) |
+| `--provider` | `-p` | `None` | LLM provider (openai, anthropic, ollama, mock) |
+| `--model` | `-m` | `None` | Model name |
+
+### Provider Options
+
+| Provider | Environment Variable | Default Models |
+|----------|---------------------|----------------|
+| `openai` | `OPENAI_API_KEY` | gpt-4o, gpt-4-turbo, gpt-3.5-turbo |
+| `anthropic` | `ANTHROPIC_API_KEY` | claude-sonnet, claude-haiku, claude-opus |
+| `ollama` | (none) | codellama, mistral, llama2, etc. |
+| `mock` | (none) | (no API key required) |
+
+### Examples
+
+```bash
+# Set model for all scopes
+code-lod config set-model --provider openai --model gpt-4o
+
+# Set different models for different scopes
+code-lod config set-model --scope function --provider openai --model gpt-4o
+code-lod config set-model --scope project --provider anthropic --model claude-sonnet
+
+# Use Ollama for local generation
+code-lod config set-model --provider ollama --model codellama
+
+# Use mock for testing (no API key)
+code-lod config set-model --provider mock
+```
+
 !!! note
-    This command is not yet fully implemented.
+    If no provider is specified, Code LoD auto-detects from environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`).

@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Rules
+
+- Always update the `CLAUDE.md`, `README.md`, `docs/`, and `spec/` files when there are significant changes to the codebase or architecture.
+
 ## Common Commands
 
 ```bash
@@ -17,7 +21,11 @@ code-lod init              # Initialize in project directory
 code-lod generate          # Generate descriptions
 code-lod status            # Check description freshness
 code-lod validate          # Validate descriptions
+code-lod update            # Update stale descriptions
 code-lod read              # Output descriptions in LLM-consumable format
+code-lod config set-model  # Configure LLM models per scope
+code-lod install-hook      # Install git pre-commit hook
+code-lod clean             # Remove all code-lod data
 
 # Documentation
 uv run mkdocs build        # Build documentation
@@ -36,7 +44,7 @@ Code LoD is a CLI tool that generates and manages code descriptions at different
 
 3. **Staleness Tracking** (`staleness.py`): `StalenessTracker` uses the hash index to determine if descriptions need regeneration.
 
-4. **Generation** (`llm/`): Abstract `BaseGenerator` interface for LLM providers. Currently uses mock generator; real providers (OpenAI, Anthropic, Ollama) are planned.
+4. **Generation** (`llm/description_generator/`): LLM provider implementations (OpenAI, Anthropic, Ollama, Mock) with auto-detection from environment variables and scope-specific model selection.
 
 5. **Storage** (`db.py`, `lod_file/`): Dual storage system:
    - SQLite database (`hash_index.db`) for metadata and caching
@@ -55,25 +63,26 @@ src/code_lod/
 ├── cli/                # Typer CLI commands (one file per command)
 │   ├── __init__.py     # Main app entry point
 │   ├── clean.py        # Clean all code-lod data
-│   ├── config.py       # Configuration management
+│   ├── config.py       # Configuration management (config, set-model commands)
 │   ├── generate.py     # Generate descriptions
-│   ├── hooks.py        # Git hooks installation
+│   ├── hooks.py        # Git hooks installation/removal
 │   ├── init.py         # Initialize code-lod
 │   ├── read.py         # Output descriptions
 │   ├── status.py       # Check freshness status
 │   ├── update.py       # Update stale descriptions
 │   └── validate.py     # Validate descriptions
-├── config.py           # Paths management
+├── config.py           # Configuration and paths management
 ├── db.py               # SQLite hash index
 ├── hashing.py          # AST hash computation
 ├── models.py           # Pydantic data models
 ├── staleness.py        # StalenessTracker
 ├── llm/
 │   ├── __init__.py
-│   └── description_generator/  # LLM generator abstraction
-│       ├── generator.py  # BaseGenerator interface
+│   └── description_generator/  # LLM generator implementations
+│       ├── generator.py  # BaseGenerator, Provider enum, get_generator()
 │       ├── anthropic.py  # Anthropic Claude provider
 │       ├── openai.py     # OpenAI provider
+│       ├── ollama.py     # Ollama local models provider
 │       └── mock.py       # Mock generator for testing
 ├── parsers/            # BaseParser, tree-sitter implementations
 └── lod_file/           # .lod file read/write/comment parsing
@@ -90,8 +99,18 @@ src/code_lod/
 
 ### Configuration
 
-Stored in `.code-lod/config.json` with supported languages. Paths are resolved relative to project root via `Paths` dataclass.
+Stored in `.code-lod/config.json`:
+- `languages`: List of supported languages
+- `provider`: LLM provider (openai, anthropic, ollama, mock)
+- `model_settings`: Hierarchical model configuration per scope
+  - Supports different models for different scopes (project, package, module, class, function)
+
+Provider auto-detection: Checks `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` environment variables. Falls back to mock if none found.
+
+Paths are resolved relative to project root via `Paths` dataclass.
 
 ### Git Hooks
 
-The `install_hook` command creates pre-commit hooks that run `code-lod validate --fail-on-stale` to ensure descriptions stay fresh.
+The `install-hook` command creates pre-commit hooks that run `code-lod validate --fail-on-stale` to ensure descriptions stay fresh. Use `uninstall-hook` to remove the hook.
+
+Supports both `pre-commit` and `pre-push` hook types via `--hook-type` option.
