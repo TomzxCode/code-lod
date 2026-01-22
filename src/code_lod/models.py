@@ -17,6 +17,38 @@ class Scope(str, Enum):
     FUNCTION = "function"
 
 
+class ModelConfig(BaseModel):
+    """Model configuration for a specific provider."""
+
+    default: str | None = Field(
+        default=None,
+        description="Default model to use when no scope-specific model is set",
+    )
+    project: str | None = Field(default=None, description="Model for PROJECT scope")
+    package: str | None = Field(default=None, description="Model for PACKAGE scope")
+    module: str | None = Field(default=None, description="Model for MODULE scope")
+    class_: str | None = Field(default=None, description="Model for CLASS scope")
+    function: str | None = Field(default=None, description="Model for FUNCTION scope")
+
+    def get_model_for_scope(self, scope: Scope) -> str | None:
+        """Get the configured model for a specific scope.
+
+        Args:
+            scope: The scope to get the model for.
+
+        Returns:
+            The configured model name, or None if not set.
+        """
+        scope_to_field = {
+            Scope.PROJECT: self.project,
+            Scope.PACKAGE: self.package,
+            Scope.MODULE: self.module,
+            Scope.CLASS: self.class_,
+            Scope.FUNCTION: self.function,
+        }
+        return scope_to_field.get(scope) or self.default
+
+
 class StalenessStatus(str, Enum):
     """Staleness status of a description."""
 

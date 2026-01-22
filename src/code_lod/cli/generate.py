@@ -4,7 +4,7 @@ from pathlib import Path
 
 import typer
 
-from code_lod.config import get_paths, load_config
+from code_lod.config import get_model_for_scope, get_paths, load_config
 from code_lod.models import Scope
 from code_lod.parsers.tree_sitter_parser import get_parser
 from code_lod.staleness import StalenessTracker
@@ -98,8 +98,15 @@ def generate(
                     continue
 
             # Generate new description
-            log.info("generating", name=entity.name, scope=entity.scope.value)
-            description = generator.generate(entity)
+            # Resolve model for this entity's scope
+            model = get_model_for_scope(config, config.provider, entity.scope)
+            log.info(
+                "generating",
+                name=entity.name,
+                scope=entity.scope.value,
+                model=model or "default",
+            )
+            description = generator.generate(entity, model=model)
             total_generated += 1
             file_generated += 1
 

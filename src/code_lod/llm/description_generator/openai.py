@@ -10,7 +10,7 @@ from code_lod.llm.description_generator.generator import (
 class OpenAIDescriptionGenerator(BaseLLMDescriptionGenerator):
     """Description generator using OpenAI's API."""
 
-    MODEL = "gpt-4o"
+    DEFAULT_MODEL = "gpt-4o"
 
     def _create_client(self, api_key: str | None):
         """Create the OpenAI client.
@@ -23,18 +23,21 @@ class OpenAIDescriptionGenerator(BaseLLMDescriptionGenerator):
         """
         return OpenAI(api_key=api_key)
 
-    def _make_api_request(self, prompt: str, source: str) -> str:
+    def _make_api_request(
+        self, prompt: str, source: str, model: str | None = None
+    ) -> str:
         """Make the OpenAI API request.
 
         Args:
             prompt: The formatted prompt.
             source: The source code.
+            model: Model name to use. If None, uses self.model.
 
         Returns:
             The generated description.
         """
         response = self.client.chat.completions.create(
-            model=self.MODEL,
+            model=model or self.model,
             max_tokens=1024,
             messages=[
                 {

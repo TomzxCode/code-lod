@@ -10,24 +10,23 @@ from code_lod.llm.description_generator.generator import (
 class OllamaDescriptionGenerator(BaseLLMDescriptionGenerator):
     """Description generator using Ollama's local API."""
 
-    MODEL = "llama3.2"
+    DEFAULT_MODEL = "llama3.2"
 
     def __init__(
         self,
         api_key: str | None = None,
-        host: str | None = None,
         model: str | None = None,
+        host: str | None = None,
     ) -> None:
         """Initialize the Ollama generator.
 
         Args:
             api_key: Unused (Ollama doesn't require API keys).
+            model: Model name to use. If None, uses DEFAULT_MODEL.
             host: Ollama host URL. If None, uses default.
-            model: Model name. If None, uses default MODEL.
         """
-        self._model = model or self.MODEL
         self._host = host
-        self.client = self._create_client(api_key)
+        super().__init__(api_key=api_key, model=model)
 
     def _create_client(self, api_key: str | None):
         """Create the Ollama client.
@@ -40,18 +39,21 @@ class OllamaDescriptionGenerator(BaseLLMDescriptionGenerator):
         """
         return Client(host=self._host)
 
-    def _make_api_request(self, prompt: str, source: str) -> str:
+    def _make_api_request(
+        self, prompt: str, source: str, model: str | None = None
+    ) -> str:
         """Make the Ollama API request.
 
         Args:
             prompt: The formatted prompt.
             source: The source code.
+            model: Model name to use. If None, uses self.model.
 
         Returns:
             The generated description.
         """
         response = self.client.chat(
-            model=self._model,
+            model=model or self.model,
             messages=[
                 {
                     "role": "user",

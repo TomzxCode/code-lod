@@ -3,19 +3,28 @@
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from code_lod.llm.description_generator.generator import Provider
+from code_lod.models import ModelConfig
+
+if TYPE_CHECKING:
+    from code_lod.models import Scope
 
 
 class Config(BaseModel):
     """Project configuration for code-lod."""
 
-    languages: list[str] = field(default_factory=lambda: ["python"])
+    languages: list[str] = Field(default_factory=lambda: ["python"])
     auto_update: bool = False
     fail_on_stale: bool = False
     provider: Provider = Provider.MOCK
+    model_settings: dict[Provider, ModelConfig] = Field(
+        default_factory=dict,
+        description="Model configuration for each provider (openai, anthropic, etc.)",
+    )
 
 
 @dataclass(frozen=True)
@@ -108,3 +117,28 @@ def save_config(config: Config, paths: Paths | None = None) -> None:
 
     paths.config_file.parent.mkdir(parents=True, exist_ok=True)
     paths.config_file.write_text(config.model_dump_json(indent=2))
+
+
+def get_model_for_scope(
+    config: Config, provider: Provider, scope: "Scope | None"
+) -> str | None:
+    """Get the configured model for a specific provider and scope.
+
+    Args:
+        config: The configuration object.
+        provider: The LLM provider.
+        scope: The scope to get the model for. If None, returns default.
+
+    Returns:
+        The configured model name, or None if not set.
+    """
+
+    if provider not in config.model_settings:
+        return None
+
+    model_config = config.model_settings[provider]
+
+    if scope is None:
+        return model_config.default
+
+    return model_config.get_model_for_scope(scope)

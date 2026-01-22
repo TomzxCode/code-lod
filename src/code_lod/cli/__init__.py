@@ -14,6 +14,7 @@ from code_lod.cli import (
     update,
     validate,
 )
+from code_lod.cli.config import config_set_model
 
 # Configure structlog for console output
 structlog.configure(
@@ -41,3 +42,4 @@ app.command()(hooks.install_hook)
 app.command()(hooks.uninstall_hook)
 app.command()(clean.clean)
 app.command()(config.config)
+app.command()(config_set_model)

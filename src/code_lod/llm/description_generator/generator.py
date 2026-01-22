@@ -50,15 +50,17 @@ class BaseLLMDescriptionGenerator(DescriptionGenerator):
     """Base class for LLM-based description generators."""
 
     # Subclasses should define these
-    MODEL: str
+    DEFAULT_MODEL: str
     MAX_SOURCE_LENGTH = 8192
 
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(self, api_key: str | None = None, model: str | None = None) -> None:
         """Initialize the generator.
 
         Args:
             api_key: API key. If None, reads from provider-specific env var.
+            model: Model name to use. If None, uses DEFAULT_MODEL.
         """
+        self.model = model or self.DEFAULT_MODEL
         self.client = self._create_client(api_key)
 
     @abstractmethod
@@ -73,23 +75,29 @@ class BaseLLMDescriptionGenerator(DescriptionGenerator):
         """
 
     @abstractmethod
-    def _make_api_request(self, prompt: str, source: str) -> str:
+    def _make_api_request(
+        self, prompt: str, source: str, model: str | None = None
+    ) -> str:
         """Make the actual API request.
 
         Args:
             prompt: The formatted prompt.
             source: The source code.
+            model: Model name to use. If None, uses self.model.
 
         Returns:
             The generated description.
         """
 
-    def generate(self, entity: ParsedEntity, context: str | None = None) -> str:
+    def generate(
+        self, entity: ParsedEntity, context: str | None = None, model: str | None = None
+    ) -> str:
         """Generate a description for an entity.
 
         Args:
             entity: The code entity to describe.
             context: Additional context about the codebase.
+            model: Override model for this specific generation.
 
         Returns:
             Generated description text.
@@ -102,7 +110,7 @@ class BaseLLMDescriptionGenerator(DescriptionGenerator):
         source_for_prompt = self._truncate_source(entity.source)
 
         try:
-            return self._make_api_request(prompt, source_for_prompt)
+            return self._make_api_request(prompt, source_for_prompt, model)
         except Exception:
             # Fallback to mock description on error
             return MockDescriptionGenerator().generate(entity)
@@ -171,11 +179,15 @@ class BaseLLMDescriptionGenerator(DescriptionGenerator):
         return source
 
 
-def get_generator(provider: Provider | None = None) -> DescriptionGenerator:
+def get_generator(
+    provider: Provider | None = None,
+    model: str | None = None,
+) -> DescriptionGenerator:
     """Get a description generator instance.
 
     Args:
         provider: The LLM provider to use. If None, detects from environment.
+        model: Model name to use. Provider-specific.
 
     Returns:
         A DescriptionGenerator instance.
@@ -205,11 +217,11 @@ def get_generator(provider: Provider | None = None) -> DescriptionGenerator:
     if provider == Provider.MOCK:
         return MockDescriptionGenerator()
     elif provider == Provider.ANTHROPIC:
-        return AnthropicDescriptionGenerator()
+        return AnthropicDescriptionGenerator(model=model)
     elif provider == Provider.OPENAI:
-        return OpenAIDescriptionGenerator()
+        return OpenAIDescriptionGenerator(model=model)
     elif provider == Provider.OLLAMA:
-        return OllamaDescriptionGenerator()
+        return OllamaDescriptionGenerator(model=model)
     else:
         raise ValueError(f"Provider {provider} not yet implemented")
 
