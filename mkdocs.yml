@@ -48,6 +48,15 @@ nav:
   - Getting Started: getting-started.md
   - Commands: commands.md
   - Architecture: architecture.md
+  - Specifications:
+      - Code Parsing: spec/code-parsing.md
+      - Description Storage: spec/description-storage.md
+      - Staleness Tracking: spec/staleness-tracking.md
+      - LLM Integration: spec/llm-integration.md
+      - Configuration Management: spec/configuration-management.md
+      - Git Integration: spec/git-integration.md
+      - Hierarchical Scopes: spec/hierarchical-scopes.md
+      - CLI Interface: spec/cli-interface.md
 
 markdown_extensions:
   - pymdownx.highlight:
