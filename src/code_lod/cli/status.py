@@ -17,7 +17,7 @@ def status(
     try:
         paths = get_paths(path)
     except FileNotFoundError:
-        typer.error("code-lod not initialized. Run 'code-lod init' first.")
+        typer.echo("code-lod not initialized. Run 'code-lod init' first.", err=True)
         raise typer.Exit(1)
 
     # Collect all .lod files and check status

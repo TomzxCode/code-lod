@@ -310,6 +310,7 @@ def pipeline_generate(
     generator,
     tracker: StalenessTracker,
     force: bool,
+    max_parallelism: int | None = None,
 ) -> tuple[int, int]:
     """Generate descriptions using a pipeline approach.
 
@@ -321,15 +322,21 @@ def pipeline_generate(
         generator: Description generator.
         tracker: Staleness tracker.
         force: Whether to force regeneration.
+        max_parallelism: Override for max_parallelism from config.
 
     Returns:
         Tuple of (total_generated, total_skipped).
     """
     from code_lod.lod_file.writer import write_lod_file
 
+    # Use max_parallelism override if provided, otherwise use config value
+    effective_max_parallelism = (
+        max_parallelism if max_parallelism is not None else config.max_parallelism
+    )
+
     # Initialize shared state
     progress = ProgressCounter(
-        total_files=len(files), max_workers=config.max_parallelism
+        total_files=len(files), max_workers=effective_max_parallelism
     )
     completion_tracker = FileCompletionTracker()
     entity_queue: Queue[ParsedEntityWithFile] = Queue()
@@ -437,21 +444,21 @@ def pipeline_generate(
             entity_queue.task_done()
 
     # Start LLM workers first
-    with ThreadPoolExecutor(max_workers=config.max_parallelism) as llm_executor:
-        for _ in range(config.max_parallelism):
+    with ThreadPoolExecutor(max_workers=effective_max_parallelism) as llm_executor:
+        for _ in range(effective_max_parallelism):
             llm_executor.submit(llm_worker)
 
         # Now start file scanning - LLM workers will process entities as they're queued
-        with ThreadPoolExecutor(max_workers=config.max_parallelism) as scanner:
+        with ThreadPoolExecutor(max_workers=effective_max_parallelism) as scanner:
             # Submit all file scanning tasks
             list(scanner.map(scan_with_tracking, files))
 
         # Signal end of entities to LLM workers
-        for _ in range(config.max_parallelism):
+        for _ in range(effective_max_parallelism):
             entity_queue.put(None)
 
     # Signal end of entities
-    for _ in range(config.max_parallelism):
+    for _ in range(effective_max_parallelism):
         entity_queue.put(None)  # Sentinel values
 
     # Phase 2: Generate descriptions in parallel
@@ -519,8 +526,8 @@ def pipeline_generate(
             entity_queue.task_done()
 
     # Start LLM workers
-    with ThreadPoolExecutor(max_workers=config.max_parallelism) as llm_executor:
-        list(llm_executor.map(lambda _: llm_worker(), range(config.max_parallelism)))
+    with ThreadPoolExecutor(max_workers=effective_max_parallelism) as llm_executor:
+        list(llm_executor.map(lambda _: llm_worker(), range(effective_max_parallelism)))
 
     progress.finalize_display()
     return total_generated, total_skipped

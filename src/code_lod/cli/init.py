@@ -15,6 +15,9 @@ def init(
     provider: Provider = typer.Option(
         Provider.MOCK, "--provider", "-p", help="LLM provider for descriptions"
     ),
+    max_parallelism: int = typer.Option(
+        8, "--max-parallelism", "-j", help="Maximum number of parallel workers"
+    ),
     force: bool = typer.Option(
         False, "--force", "-f", help="Re-initialize even if already initialized"
     ),
@@ -33,7 +36,9 @@ def init(
     paths.lod_dir.mkdir(parents=True, exist_ok=True)
 
     # Write config
-    config = Config(languages=languages, provider=provider)
+    config = Config(
+        languages=languages, provider=provider, max_parallelism=max_parallelism
+    )
     config_json = config.model_dump_json(indent=2)
     paths.config_file.write_text(config_json)
 

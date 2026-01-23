@@ -14,12 +14,12 @@ def install_hook(
     try:
         paths = get_paths()
     except FileNotFoundError:
-        typer.error("code-lod not initialized. Run 'code-lod init' first.")
+        typer.echo("code-lod not initialized. Run 'code-lod init' first.", err=True)
         raise typer.Exit(1)
 
     hooks_dir = paths.root_dir / ".git" / "hooks"
     if not hooks_dir.exists():
-        typer.error("Not a git repository")
+        typer.echo("Not a git repository", err=True)
         raise typer.Exit(1)
 
     hook_script = f"""#!/bin/sh
@@ -39,7 +39,7 @@ def uninstall_hook() -> None:
     try:
         paths = get_paths()
     except FileNotFoundError:
-        typer.error("code-lod not initialized.")
+        typer.echo("code-lod not initialized.", err=True)
         raise typer.Exit(1)
 
     hooks_dir = paths.root_dir / ".git" / "hooks"

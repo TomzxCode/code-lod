@@ -14,7 +14,7 @@ def clean(
     try:
         paths = get_paths()
     except FileNotFoundError:
-        typer.error("code-lod not initialized.")
+        typer.echo("code-lod not initialized.", err=True)
         raise typer.Exit(1)
 
     if not force:

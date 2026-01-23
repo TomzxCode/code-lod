@@ -19,12 +19,15 @@ def generate(
         None, "--scope", "-s", help="Hierarchical level to generate"
     ),
     force: bool = typer.Option(False, "--force", "-f", help="Regenerate even if fresh"),
+    max_parallelism: int | None = typer.Option(
+        None, "--max-parallelism", "-j", help="Maximum number of parallel workers"
+    ),
 ) -> None:
     """Generate descriptions for code entities."""
     try:
         paths = get_paths(path)
     except FileNotFoundError:
-        typer.error("code-lod not initialized. Run 'code-lod init' first.")
+        typer.echo("code-lod not initialized. Run 'code-lod init' first.", err=True)
         raise typer.Exit(1)
 
     typer.echo(f"Generating descriptions for {path}...")
@@ -53,6 +56,7 @@ def generate(
         generator=generator,
         tracker=tracker,
         force=force,
+        max_parallelism=max_parallelism,
     )
 
     typer.echo(f"Generated {total_generated} descriptions")

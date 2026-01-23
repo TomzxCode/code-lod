@@ -55,4 +55,4 @@ Removes the git hook:
 
 - Exits with status code 1 if code-lod is not initialized
 - Exits with status code 1 if not in a git repository
-- Uses typer.error() for user-friendly error messages
+- Uses typer.echo() for user-friendly error messages
