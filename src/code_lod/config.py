@@ -25,6 +25,10 @@ class Config(BaseModel):
         default_factory=dict,
         description="Model configuration for each provider (openai, anthropic, etc.)",
     )
+    max_parallelism: int = Field(
+        default=8,
+        description="Maximum number of parallel LLM requests to make",
+    )
 
 
 @dataclass(frozen=True)

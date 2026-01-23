@@ -85,41 +85,39 @@ class HashIndex:
     ) -> None:
         """Set a description record.
 
+        This operation is thread-safe and handles concurrent writes gracefully.
+
         Args:
             hash_: The hash of the code entity.
             description: The LLM-generated description.
             stale: Whether the description is stale.
             hash_history: Previous hashes for revert detection.
         """
-        existing = self.get(hash_)
-        now = datetime.utcnow().isoformat()
-
         if hash_history is None:
             hash_history = []
 
-        if existing:
-            # Update existing record
-            with self._connect() as conn:
-                conn.execute(
-                    """
-                    UPDATE descriptions
-                    SET description = ?, stale = ?, updated_at = ?, hash_history = ?
-                    WHERE hash = ?
-                    """,
-                    (description, stale, now, str(hash_history), hash_),
-                )
-                conn.commit()
-        else:
-            # Insert new record
-            with self._connect() as conn:
-                conn.execute(
-                    """
-                    INSERT INTO descriptions (hash, description, stale, created_at, updated_at, hash_history)
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (hash_, description, stale, now, now, str(hash_history)),
-                )
-                conn.commit()
+        now = datetime.utcnow().isoformat()
+
+        with self._connect() as conn:
+            # Use INSERT OR REPLACE for atomic upsert.
+            # If the row exists, we need to preserve the original created_at.
+            # We do this by selecting it first, then doing INSERT OR REPLACE.
+            # The trick is to use a subquery in the INSERT to get the original created_at
+            # if the row exists.
+            conn.execute(
+                """
+                INSERT INTO descriptions (hash, description, stale, created_at, updated_at, hash_history)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(hash) DO UPDATE SET
+                    description = excluded.description,
+                    stale = excluded.stale,
+                    updated_at = excluded.updated_at,
+                    hash_history = excluded.hash_history,
+                    created_at = descriptions.created_at
+                """,
+                (hash_, description, stale, now, now, str(hash_history)),
+            )
+            conn.commit()
 
     def mark_stale(self, hash_: str) -> None:
         """Mark a description as stale.

@@ -1,6 +1,5 @@
 """Config command for code-lod."""
 
-
 import typer
 
 from code_lod.config import get_paths, load_config, save_config
