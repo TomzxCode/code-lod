@@ -5,15 +5,17 @@ from pathlib import Path
 import typer
 
 from code_lod.config import Config, Paths
-from code_lod.llm.description_generator.generator import Provider
 
 
 def init(
     languages: list[str] = typer.Option(
         ["python"], "--language", "-l", help="Languages to support"
     ),
-    provider: Provider = typer.Option(
-        Provider.MOCK, "--provider", "-p", help="LLM provider for descriptions"
+    provider: str = typer.Option(
+        "mock",
+        "--provider",
+        "-p",
+        help="LLM provider for descriptions (any pydantic-ai provider prefix)",
     ),
     max_parallelism: int = typer.Option(
         8, "--max-parallelism", "-j", help="Maximum number of parallel workers"

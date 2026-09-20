@@ -5,10 +5,8 @@ description = "Your code at different levels of detail"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
-    "anthropic>=0.75.0",
-    "ollama>=0.6.1",
-    "openai>=2.15.0",
     "pydantic>=2.12.5",
+    "pydantic-ai>=2.46.0",
     "structlog>=25.5.0",
     "tree-sitter>=0.25.2",
     "tree-sitter-language-pack>=0.13.0",

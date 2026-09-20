@@ -21,7 +21,7 @@ class TestConfigValidators:
         """Test default configuration values."""
         config = Config()
         assert config.languages == ["python"]
-        assert config.provider.value == "mock"
+        assert config.provider == "mock"
         assert config.max_parallelism == 8
         assert config.log_level == "info"
         assert config.ignore_patterns

@@ -394,16 +394,20 @@ code-lod config set-model [OPTIONS]
 | Option | Short | Default | Description |
 |--------|-------|---------|-------------|
 | `--scope` | `-s` | `None` | Scope to configure (project, package, module, class, function) |
-| `--provider` | `-p` | `None` | LLM provider (openai, anthropic, ollama, mock) |
+| `--provider` | `-p` | `None` | LLM provider (any pydantic-ai provider prefix: openai, anthropic, ollama, google, groq, ..., or mock) |
 | `--model` | `-m` | `None` | Model name |
 
 ### Provider Options
+
+Any [pydantic-ai](https://ai.pydantic.dev) provider prefix is accepted.
+Common providers:
 
 | Provider | Environment Variable | Default Models |
 |----------|---------------------|----------------|
 | `openai` | `OPENAI_API_KEY` | gpt-4o, gpt-4-turbo, gpt-3.5-turbo |
 | `anthropic` | `ANTHROPIC_API_KEY` | claude-sonnet, claude-haiku, claude-opus |
-| `ollama` | (none) | codellama, mistral, llama2, etc. |
+| `ollama` | (none) | codellama, mistral, llama3.2, etc. |
+| `google`, `groq`, `mistral`, ... | provider-specific | see pydantic-ai docs |
 | `mock` | (none) | (no API key required) |
 
 ### Examples

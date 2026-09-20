@@ -7,7 +7,6 @@ from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field, field_validator
 
-from code_lod.llm.description_generator.generator import Provider
 from code_lod.models import ModelConfig
 from code_lod.parsers.tree_sitter_parser import LANGUAGE_MAP
 
@@ -21,8 +20,14 @@ class Config(BaseModel):
     languages: list[str] = Field(default_factory=lambda: ["python"])
     auto_update: bool = False
     fail_on_stale: bool = False
-    provider: Provider = Provider.MOCK
-    model_settings: dict[Provider, ModelConfig] = Field(
+    provider: str = Field(
+        default="mock",
+        description=(
+            "LLM provider name (any pydantic-ai provider prefix, "
+            "e.g. openai, anthropic, ollama, google, groq)"
+        ),
+    )
+    model_settings: dict[str, ModelConfig] = Field(
         default_factory=dict,
         description="Model configuration for each provider (openai, anthropic, etc.)",
     )
@@ -61,6 +66,15 @@ class Config(BaseModel):
                 f"Invalid language(s): {', '.join(invalid_langs)}. "
                 f"Supported languages: {', '.join(sorted(supported_langs))}"
             )
+        return v
+
+    @field_validator("provider")
+    @classmethod
+    def validate_provider(cls, v: str) -> str:
+        """Validate provider is a non-empty name."""
+        v = v.strip().lower()
+        if not v:
+            raise ValueError("provider must be a non-empty string")
         return v
 
     @field_validator("max_parallelism")
@@ -184,13 +198,13 @@ def save_config(config: Config, paths: Paths | None = None) -> None:
 
 
 def get_model_for_scope(
-    config: Config, provider: Provider, scope: "Scope | None"
+    config: Config, provider: str, scope: "Scope | None"
 ) -> str | None:
     """Get the configured model for a specific provider and scope.
 
     Args:
         config: The configuration object.
-        provider: The LLM provider.
+        provider: The LLM provider name.
         scope: The scope to get the model for. If None, returns default.
 
     Returns:

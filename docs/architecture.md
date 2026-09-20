@@ -172,17 +172,11 @@ def authenticate_user(username: str, password: str) -> str:
 
 ### LLM Integration (`llm/description_generator/`)
 
-Abstract interface for description generation with multiple provider implementations:
+Abstract interface for description generation with a single pydantic-ai backed provider implementation:
 
 ```python
-class Provider(str, Enum):
-    OPENAI = "openai"
-    ANTHROPIC = "anthropic"
-    OLLAMA = "ollama"
-    MOCK = "mock"
-
 def get_generator(
-    provider: Provider | None = None,
+    provider: str | None = None,  # any pydantic-ai provider prefix
     model: str | None = None,
 ) -> DescriptionGenerator:
     """Get a description generator instance."""
@@ -190,11 +184,21 @@ def get_generator(
 
 #### Provider Implementations
 
-**OpenAI** (`openai.py`): GPT-4, GPT-4o, GPT-3.5-turbo via `openai` package
+All LLM providers are served through a single generator backed by
+[pydantic-ai](https://ai.pydantic.dev) (`pydantic_ai_generator.py`). Any
+pydantic-ai provider prefix is accepted; the provider name doubles as the
+model-string prefix. Model names from the configuration are resolved to
+pydantic-ai model strings, e.g. provider `anthropic` with model
+`claude-sonnet-4-5` becomes `anthropic:claude-sonnet-4-5`. Names that already
+carry a provider prefix are used as-is.
 
-**Anthropic** (`anthropic.py`): Claude Sonnet, Claude Haiku, Claude Opus via `anthropic` package
+**OpenAI**: GPT-4, GPT-4o, GPT-3.5-turbo via the `openai` prefix
 
-**Ollama** (`ollama.py`): Local models (codellama, mistral, llama2, etc.) via `ollama` package
+**Anthropic**: Claude Sonnet, Claude Haiku, Claude Opus via the `anthropic` prefix
+
+**Ollama**: Local models (codellama, mistral, llama3.2, etc.) via the `ollama` prefix (served through Ollama's OpenAI-compatible API)
+
+**Other providers**: `google`, `groq`, `mistral`, `xai`, etc. require a configured model (no built-in default)
 
 **Mock** (`mock.py`): Placeholder descriptions for testing (no API key required)
 
@@ -284,11 +288,9 @@ src/code_lod/
 ├── llm/                # LLM integration
 │   ├── __init__.py
 │   └── description_generator/
-│       ├── generator.py    # Base classes, Provider enum, get_generator()
-│       ├── anthropic.py    # Anthropic Claude provider
-│       ├── openai.py       # OpenAI provider
-│       ├── ollama.py       # Ollama local models provider
-│       └── mock.py         # Mock generator for testing
+│       ├── generator.py               # Base classes, get_generator()
+│       ├── pydantic_ai_generator.py   # pydantic-ai backed provider generator
+│       └── mock.py                    # Mock generator for testing
 ├── parsers/            # Code parsers
 │   ├── __init__.py
 │   ├── base.py         # BaseParser interface

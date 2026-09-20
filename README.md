@@ -83,7 +83,7 @@ Code LoD generates, manages, and updates code descriptions through a multi-layer
 1. **Parsing** (`parsers/`): Tree-sitter based parsers extract code entities (functions, classes, modules) with AST hashes
 2. **Hashing** (`hashing.py`): AST hashes are computed on normalized source to detect semantic changes
 3. **Staleness Tracking** (`staleness.py`): Uses the hash index to determine if descriptions need regeneration
-4. **Generation** (`llm/description_generator/`): LLM provider implementations (OpenAI, Anthropic, Ollama, Mock) with auto-detection and scope-specific model selection
+4. **Generation** (`llm/description_generator/`): LLM generation through a single pydantic-ai backed generator (OpenAI, Anthropic, Ollama) plus a Mock generator, with auto-detection and scope-specific model selection
 5. **Storage** (`db.py`, `lod_file/`): Dual storage system with SQLite database and `.lod` files
 
 ### Storage
@@ -101,9 +101,13 @@ Code LoD supports multiple LLM providers for generating descriptions:
 
 ### Supported Providers
 
+Any [pydantic-ai](https://ai.pydantic.dev) provider works by using its provider
+name as prefix for the model. Common providers:
+
 - **OpenAI**: GPT-4, GPT-4o, GPT-3.5-turbo
 - **Anthropic**: Claude Sonnet, Claude Haiku, Claude Opus
-- **Ollama**: Local models (e.g., llama2, mistral, codellama)
+- **Ollama**: Local models (e.g., llama3.2, mistral, codellama)
+- **Google, Groq, Mistral, xAI, ...**: Any pydantic-ai supported provider
 - **Mock**: Placeholder descriptions for testing (no API key required)
 
 ### Configuration

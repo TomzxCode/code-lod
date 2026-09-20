@@ -2,18 +2,8 @@
 
 import os
 from abc import ABC, abstractmethod
-from enum import Enum
 
 from code_lod.models import ParsedEntity, Scope
-
-
-class Provider(str, Enum):
-    """LLM provider options."""
-
-    OPENAI = "openai"
-    ANTHROPIC = "anthropic"
-    OLLAMA = "ollama"
-    MOCK = "mock"  # For testing
 
 
 class DescriptionGenerator(ABC):
@@ -180,50 +170,39 @@ class BaseLLMDescriptionGenerator(DescriptionGenerator):
 
 
 def get_generator(
-    provider: Provider | None = None,
+    provider: str | None = None,
     model: str | None = None,
 ) -> DescriptionGenerator:
     """Get a description generator instance.
 
     Args:
-        provider: The LLM provider to use. If None, detects from environment.
+        provider: The LLM provider name (any pydantic-ai provider prefix,
+            e.g. openai, anthropic, ollama, google, groq). If None, detects
+            from environment.
         model: Model name to use. Provider-specific.
 
     Returns:
         A DescriptionGenerator instance.
-
-    Raises:
-        ValueError: If the provider is not supported.
     """
-    from code_lod.llm.description_generator.anthropic import (
-        AnthropicDescriptionGenerator,
-    )
     from code_lod.llm.description_generator.mock import MockDescriptionGenerator
-    from code_lod.llm.description_generator.ollama import (
-        OllamaDescriptionGenerator,
+    from code_lod.llm.description_generator.pydantic_ai_generator import (
+        PydanticAIDescriptionGenerator,
     )
-    from code_lod.llm.description_generator.openai import OpenAIDescriptionGenerator
 
     if provider is None:
         # Auto-detect from environment
         if os.getenv("ANTHROPIC_API_KEY"):
-            provider = Provider.ANTHROPIC
+            provider = "anthropic"
         elif os.getenv("OPENAI_API_KEY"):
-            provider = Provider.OPENAI
+            provider = "openai"
         else:
             # Default to mock
-            provider = Provider.MOCK
+            provider = "mock"
 
-    if provider == Provider.MOCK:
+    provider = provider.lower()
+    if provider == "mock":
         return MockDescriptionGenerator()
-    elif provider == Provider.ANTHROPIC:
-        return AnthropicDescriptionGenerator(model=model)
-    elif provider == Provider.OPENAI:
-        return OpenAIDescriptionGenerator(model=model)
-    elif provider == Provider.OLLAMA:
-        return OllamaDescriptionGenerator(model=model)
-    else:
-        raise ValueError(f"Provider {provider} not yet implemented")
+    return PydanticAIDescriptionGenerator(provider, model=model)
 
 
 # Prompt templates for LLM integration

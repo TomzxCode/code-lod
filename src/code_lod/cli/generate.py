@@ -65,9 +65,17 @@ def generate(
     log.info("files_found", count=len(files))
 
     tracker = StalenessTracker(paths.root_dir)
+    from code_lod.config import get_model_for_scope
     from code_lod.llm.description_generator.generator import get_generator
 
-    generator = get_generator(config.provider)
+    try:
+        generator = get_generator(
+            config.provider,
+            model=get_model_for_scope(config, config.provider, None),
+        )
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
 
     # Use pipeline for parallel processing
     total_generated, total_skipped = pipeline_generate(

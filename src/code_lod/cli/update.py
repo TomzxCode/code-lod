@@ -108,9 +108,17 @@ def update(
     if not auto_approve:
         typer.confirm("Update all stale descriptions?", abort=True)
 
+    from code_lod.config import get_model_for_scope
     from code_lod.llm.description_generator.generator import get_generator
 
-    generator = get_generator(config.provider)
+    try:
+        generator = get_generator(
+            config.provider,
+            model=get_model_for_scope(config, config.provider, None),
+        )
+    except ValueError as e:
+        typer.echo(f"Error: {e}", err=True)
+        raise typer.Exit(1)
 
     # Use pipeline to regenerate stale descriptions
     # The pipeline will check staleness and only regenerate stale entities

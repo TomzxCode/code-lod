@@ -44,7 +44,7 @@ Code LoD is a CLI tool that generates and manages code descriptions at different
 
 3. **Staleness Tracking** (`staleness.py`): `StalenessTracker` uses the hash index to determine if descriptions need regeneration. Staleness is detected by comparing the current AST hash against the index (missing or marked-stale means stale).
 
-4. **Generation** (`llm/description_generator/`, `pipeline.py`): LLM provider implementations (OpenAI, Anthropic, Ollama, Mock) with auto-detection from environment variables and scope-specific model selection. `pipeline.py` runs scanning and LLM generation in parallel thread pools and writes `.lod` files as each file's entities complete.
+4. **Generation** (`llm/description_generator/`, `pipeline.py`): LLM generation through a single pydantic-ai backed generator supporting any pydantic-ai provider prefix (openai, anthropic, ollama, google, groq, ...) plus a Mock generator, with auto-detection from environment variables and scope-specific model selection. `pipeline.py` runs scanning and LLM generation in parallel thread pools and writes `.lod` files as each file's entities complete.
 
 5. **Storage** (`db.py`, `lod_file/`): Dual storage system:
    - SQLite database (`hash_index.db`) for metadata and caching
@@ -80,10 +80,8 @@ src/code_lod/
 ├── llm/
 │   ├── __init__.py
 │   └── description_generator/  # LLM generator implementations
-│       ├── generator.py  # BaseGenerator, Provider enum, get_generator()
-│       ├── anthropic.py  # Anthropic Claude provider
-│       ├── openai.py     # OpenAI provider
-│       ├── ollama.py     # Ollama local models provider
+│       ├── generator.py  # BaseGenerator, get_generator()
+│       ├── pydantic_ai_generator.py  # pydantic-ai backed provider generator
 │       └── mock.py       # Mock generator for testing
 ├── parsers/            # BaseParser, tree-sitter implementations
 └── lod_file/           # .lod file read/write/comment parsing
@@ -102,7 +100,7 @@ src/code_lod/
 
 Stored in `.code-lod/config.json`:
 - `languages`: List of supported languages (validated against tree-sitter LANGUAGE_MAP)
-- `provider`: LLM provider (openai, anthropic, ollama, mock)
+- `provider`: LLM provider name, any pydantic-ai provider prefix (openai, anthropic, ollama, google, groq, ...); `mock` for testing. Providers without a known default model require a configured model.
 - `model_settings`: Hierarchical model configuration per scope
   - Supports different models for different scopes (project, package, module, class, function)
 - `max_parallelism`: Maximum number of parallel LLM requests (default 8)

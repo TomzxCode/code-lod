@@ -47,7 +47,9 @@ Supported languages include: Python, JavaScript, TypeScript, Go, Rust, Java, C, 
 
 ## LLM Provider Configuration
 
-Code LoD supports multiple LLM providers for generating descriptions. Set up your preferred provider:
+Code LoD supports multiple LLM providers for generating descriptions. Any
+[pydantic-ai](https://ai.pydantic.dev) provider works by using its provider
+name as prefix for the model. Common providers:
 
 ### OpenAI
 

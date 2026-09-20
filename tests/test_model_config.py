@@ -4,7 +4,6 @@ import json
 
 
 from code_lod.config import Config, get_model_for_scope
-from code_lod.llm.description_generator.generator import Provider
 from code_lod.models import ModelConfig, Scope
 
 
@@ -75,25 +74,23 @@ class TestConfigModelSettings:
     def test_config_with_model_settings(self) -> None:
         """Test Config with model_settings."""
         config = Config(
-            provider=Provider.OPENAI,
+            provider="openai",
             model_settings={
-                Provider.OPENAI: ModelConfig(default="gpt-4o"),
-                Provider.ANTHROPIC: ModelConfig(default="claude-sonnet-4-5-20250929"),
+                "openai": ModelConfig(default="gpt-4o"),
+                "anthropic": ModelConfig(default="claude-sonnet-4-5-20250929"),
             },
         )
-        assert Provider.OPENAI in config.model_settings
-        assert Provider.ANTHROPIC in config.model_settings
-        assert config.model_settings[Provider.OPENAI].default == "gpt-4o"
+        assert "openai" in config.model_settings
+        assert "anthropic" in config.model_settings
+        assert config.model_settings["openai"].default == "gpt-4o"
 
     def test_serialize_config_with_model_settings(self, tmp_path) -> None:
         """Test serializing Config with model_settings to JSON."""
 
         config = Config(
-            provider=Provider.OPENAI,
+            provider="openai",
             model_settings={
-                Provider.OPENAI: ModelConfig(
-                    default="gpt-4o", function="gpt-3.5-turbo"
-                ),
+                "openai": ModelConfig(default="gpt-4o", function="gpt-3.5-turbo"),
             },
         )
 
@@ -127,10 +124,10 @@ class TestConfigModelSettings:
         config_file.write_text(json.dumps(config_data, indent=2))
 
         config = Config(**json.loads(config_file.read_text()))
-        assert config.provider == Provider.OPENAI
-        assert Provider.OPENAI in config.model_settings
-        assert config.model_settings[Provider.OPENAI].default == "gpt-4o"
-        assert config.model_settings[Provider.OPENAI].function == "gpt-3.5-turbo"
+        assert config.provider == "openai"
+        assert "openai" in config.model_settings
+        assert config.model_settings["openai"].default == "gpt-4o"
+        assert config.model_settings["openai"].function == "gpt-3.5-turbo"
 
 
 class TestGetModelForScope:
@@ -139,68 +136,68 @@ class TestGetModelForScope:
     def test_returns_none_when_provider_not_configured(self) -> None:
         """Test returns None when provider not in model_settings."""
         config = Config()
-        model = get_model_for_scope(config, Provider.OPENAI, Scope.FUNCTION)
+        model = get_model_for_scope(config, "openai", Scope.FUNCTION)
         assert model is None
 
     def test_returns_none_when_scope_not_configured(self) -> None:
         """Test returns None when scope not configured."""
         config = Config(
             model_settings={
-                Provider.OPENAI: ModelConfig(),
+                "openai": ModelConfig(),
             }
         )
-        model = get_model_for_scope(config, Provider.OPENAI, Scope.FUNCTION)
+        model = get_model_for_scope(config, "openai", Scope.FUNCTION)
         assert model is None
 
     def test_returns_scope_specific_model(self) -> None:
         """Test returns scope-specific model."""
         config = Config(
             model_settings={
-                Provider.OPENAI: ModelConfig(function="gpt-3.5-turbo"),
+                "openai": ModelConfig(function="gpt-3.5-turbo"),
             }
         )
-        model = get_model_for_scope(config, Provider.OPENAI, Scope.FUNCTION)
+        model = get_model_for_scope(config, "openai", Scope.FUNCTION)
         assert model == "gpt-3.5-turbo"
 
     def test_returns_default_when_scope_not_set(self) -> None:
         """Test returns default model when scope-specific not set."""
         config = Config(
             model_settings={
-                Provider.OPENAI: ModelConfig(default="gpt-4o"),
+                "openai": ModelConfig(default="gpt-4o"),
             }
         )
-        model = get_model_for_scope(config, Provider.OPENAI, Scope.FUNCTION)
+        model = get_model_for_scope(config, "openai", Scope.FUNCTION)
         assert model == "gpt-4o"
 
     def test_returns_default_when_scope_is_none(self) -> None:
         """Test returns default model when scope is None."""
         config = Config(
             model_settings={
-                Provider.OPENAI: ModelConfig(default="gpt-4o"),
+                "openai": ModelConfig(default="gpt-4o"),
             }
         )
-        model = get_model_for_scope(config, Provider.OPENAI, None)
+        model = get_model_for_scope(config, "openai", None)
         assert model == "gpt-4o"
 
     def test_scope_specific_overrides_default(self) -> None:
         """Test scope-specific model overrides default."""
         config = Config(
             model_settings={
-                Provider.OPENAI: ModelConfig(
+                "openai": ModelConfig(
                     default="gpt-4o",
                     function="gpt-3.5-turbo",
                 ),
             }
         )
-        model = get_model_for_scope(config, Provider.OPENAI, Scope.FUNCTION)
+        model = get_model_for_scope(config, "openai", Scope.FUNCTION)
         assert model == "gpt-3.5-turbo"
 
     def test_returns_none_for_other_provider(self) -> None:
         """Test returns None for different provider."""
         config = Config(
             model_settings={
-                Provider.OPENAI: ModelConfig(default="gpt-4o"),
+                "openai": ModelConfig(default="gpt-4o"),
             }
         )
-        model = get_model_for_scope(config, Provider.ANTHROPIC, Scope.FUNCTION)
+        model = get_model_for_scope(config, "anthropic", Scope.FUNCTION)
         assert model is None

@@ -1,9 +1,9 @@
 """Config command for code-lod."""
 
+import structlog
 import typer
 
 from code_lod.config import get_paths, load_config, save_config
-from code_lod.llm.description_generator.generator import Provider
 from code_lod.models import ModelConfig, Scope
 
 
@@ -36,9 +36,8 @@ def config(
       code-lod config set-model anthropic function claude-sonnet-4-5-20250929
       code-lod config set-model openai default gpt-4o
     """
-    from code_lod.cli import app
 
-    log = app.log  # type: ignore[attr-defined]
+    log = structlog.get_logger()
 
     try:
         paths = get_paths()
@@ -84,7 +83,9 @@ def config(
 
 
 def config_set_model(
-    provider: str = typer.Argument(..., help="Provider (openai, anthropic, mock)"),
+    provider: str = typer.Argument(
+        ..., help="Provider (any pydantic-ai provider prefix, e.g. openai, anthropic)"
+    ),
     scope: str = typer.Argument(
         ...,
         help="Scope (default, project, package, module, class, function)",
@@ -97,9 +98,8 @@ def config_set_model(
       code-lod config-set-model anthropic function claude-sonnet-4-5-20250929
       code-lod config-set-model openai default gpt-4o
     """
-    from code_lod.cli import app
 
-    log = app.log  # type: ignore[attr-defined]
+    log = structlog.get_logger()
 
     try:
         paths = get_paths()
@@ -109,15 +109,7 @@ def config_set_model(
         )
         raise typer.Exit(1)
 
-    # Validate provider
-    try:
-        provider_enum = Provider(provider.lower())
-    except ValueError:
-        typer.echo(
-            f"Error: Invalid provider '{provider}'. Valid options: {[p.value for p in Provider]}",
-            err=True,
-        )
-        raise typer.Exit(1)
+    provider = provider.strip().lower()
 
     # Validate scope
     if scope.lower() == "default":
@@ -136,10 +128,10 @@ def config_set_model(
     config_obj = load_config(paths)
 
     # Get or create model config for this provider
-    if provider_enum not in config_obj.model_settings:
-        config_obj.model_settings[provider_enum] = ModelConfig()
+    if provider not in config_obj.model_settings:
+        config_obj.model_settings[provider] = ModelConfig()
 
-    model_config = config_obj.model_settings[provider_enum]
+    model_config = config_obj.model_settings[provider]
 
     # Set the model for the scope
     if scope_key is None:
@@ -169,12 +161,12 @@ def _list_config(config_obj) -> None:
     typer.echo(f"  languages: {config_obj.languages}")
     typer.echo(f"  auto_update: {config_obj.auto_update}")
     typer.echo(f"  fail_on_stale: {config_obj.fail_on_stale}")
-    typer.echo(f"  provider: {config_obj.provider.value}")
+    typer.echo(f"  provider: {config_obj.provider}")
     typer.echo("\nModel settings:")
     if not config_obj.model_settings:
         typer.echo("  (none configured)")
     for provider, model_config in config_obj.model_settings.items():
-        typer.echo(f"  {provider.value}:")
+        typer.echo(f"  {provider}:")
         if model_config.default:
             typer.echo(f"    default: {model_config.default}")
         if model_config.project:
@@ -192,7 +184,7 @@ def _list_config(config_obj) -> None:
 def _get_config(config_obj, key: str) -> None:
     """Get a configuration value."""
     if key == "provider":
-        typer.echo(config_obj.provider.value)
+        typer.echo(config_obj.provider)
     elif key == "languages":
         typer.echo(", ".join(config_obj.languages))
     elif key == "auto_update":
@@ -201,7 +193,7 @@ def _get_config(config_obj, key: str) -> None:
         typer.echo(str(config_obj.fail_on_stale).lower())
     elif key in ["model_settings", "models"]:
         for provider, model_config in config_obj.model_settings.items():
-            typer.echo(f"{provider.value}:")
+            typer.echo(f"{provider}:")
             if model_config.default:
                 typer.echo(f"  default: {model_config.default}")
             if model_config.project:
@@ -226,15 +218,8 @@ def _get_config(config_obj, key: str) -> None:
 def _set_config(config_obj, key: str, value: str, paths, log) -> None:
     """Set a configuration value."""
     if key == "provider":
-        try:
-            config_obj.provider = Provider(value.lower())
-            log.info("config_set", key=key, value=value)
-        except ValueError:
-            typer.echo(
-                f"Error: Invalid provider '{value}'. Valid options: {[p.value for p in Provider]}",
-                err=True,
-            )
-            raise typer.Exit(1)
+        config_obj.provider = value.strip().lower()
+        log.info("config_set", key=key, value=config_obj.provider)
     elif key == "languages":
         config_obj.languages = [lang.strip() for lang in value.split(",")]
         log.info("config_set", key=key, value=config_obj.languages)
