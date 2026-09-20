@@ -42,7 +42,7 @@ LANGUAGE_MAP: dict[str, str] = {
 
 
 def detect_language(path: Path) -> str | None:
-    """Detect the programming language from a file path.
+    """Detect programming language from a file path.
 
     Args:
         path: Path to the file.
@@ -52,6 +52,18 @@ def detect_language(path: Path) -> str | None:
     """
     suffix = path.suffix.lower()
     return LANGUAGE_MAP.get(suffix)
+
+
+def get_language_map_extensions(language: str) -> list[str]:
+    """Get file extensions for a given language name.
+
+    Args:
+        language: The language name (e.g., "python", "javascript").
+
+    Returns:
+        List of file extensions for that language.
+    """
+    return [ext for ext, lang in LANGUAGE_MAP.items() if lang == language]
 
 
 def get_parser(language: str) -> "TreeSitterParser":
@@ -148,9 +160,11 @@ class TreeSitterParser(BaseParser):
             elif node.type in class_types:
                 entity = self._parse_class(node, source_bytes, path, parent_name)
                 entities.append(entity)
-                # Traverse inside classes for methods
+                # Traverse inside classes for methods; children are already
+                # visited here, so skip the generic loop below.
                 for child in node.children:
                     traverse(child, entity.name)
+                return
 
             for child in node.children:
                 traverse(child, parent_name)

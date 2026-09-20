@@ -3,7 +3,7 @@
 import sqlite3
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, UTC
 from pathlib import Path
 from typing import Any
 
@@ -96,7 +96,7 @@ class HashIndex:
         if hash_history is None:
             hash_history = []
 
-        now = datetime.utcnow().isoformat()
+        now = datetime.now(UTC).isoformat()
 
         with self._connect() as conn:
             # Use INSERT OR REPLACE for atomic upsert.
@@ -128,7 +128,7 @@ class HashIndex:
         with self._connect() as conn:
             conn.execute(
                 "UPDATE descriptions SET stale = TRUE, updated_at = ? WHERE hash = ?",
-                (datetime.utcnow().isoformat(), hash_),
+                (datetime.now(UTC).isoformat(), hash_),
             )
             conn.commit()
 
@@ -141,7 +141,7 @@ class HashIndex:
         with self._connect() as conn:
             conn.execute(
                 "UPDATE descriptions SET stale = FALSE, updated_at = ? WHERE hash = ?",
-                (datetime.utcnow().isoformat(), hash_),
+                (datetime.now(UTC).isoformat(), hash_),
             )
             conn.commit()
 

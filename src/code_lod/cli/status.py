@@ -4,7 +4,9 @@ from pathlib import Path
 
 import typer
 
-from code_lod.config import get_paths
+from code_lod.config import get_paths, load_config, should_ignore_file
+from code_lod.parsers.tree_sitter_parser import get_language_map_extensions, get_parser
+from code_lod.staleness import StalenessTracker
 
 
 def status(
@@ -20,25 +22,62 @@ def status(
         typer.echo("code-lod not initialized. Run 'code-lod init' first.", err=True)
         raise typer.Exit(1)
 
-    # Collect all .lod files and check status
-    lod_files = list(paths.lod_dir.rglob("*.lod"))
+    config = load_config(paths)
+    tracker = StalenessTracker(paths.root_dir)
+
+    # Collect all source files
+    files: list[Path] = []
+    if path.is_dir():
+        for lang in config.languages:
+            for ext in get_language_map_extensions(lang):
+                files.extend(path.rglob(f"*{ext}"))
+    else:
+        files = [path]
+
+    # Filter and deduplicate
+    files = list(
+        {
+            f
+            for f in files
+            if f.is_file()
+            and not should_ignore_file(f, paths.root_dir, config.ignore_patterns)
+        }
+    )
 
     total_entities = 0
-    stale_entities = 0
     fresh_entities = 0
+    stale_entities = 0
 
-    for lod_file in lod_files:
-        from code_lod.lod_file.reader import read_lod_file
+    for file_path in files:
+        # Detect language and parse
+        from code_lod.parsers.tree_sitter_parser import detect_language
 
-        entries = read_lod_file(lod_file)
-        for entry in entries:
+        lang = detect_language(file_path)
+        if not lang:
+            continue
+
+        parser = get_parser(lang)
+        entities = parser.parse_file(file_path)
+
+        for entity in entities:
             total_entities += 1
-            if entry.comment.stale:
+
+            # Check if this entity has a fresh description
+            record = tracker.hash_index.get(entity.ast_hash)
+
+            is_stale = record is None or record.stale
+
+            if is_stale:
                 stale_entities += 1
-                if not stale_only:
-                    typer.echo(f"  [STALE] {entry.scope.value}: {entry.name}")
+                typer.echo(
+                    f"  [STALE] {entity.scope.value}: {entity.name} ({file_path.relative_to(paths.root_dir)})"
+                )
             else:
                 fresh_entities += 1
+                if not stale_only:
+                    typer.echo(
+                        f"  [FRESH] {entity.scope.value}: {entity.name} ({file_path.relative_to(paths.root_dir)})"
+                    )
 
     typer.echo(
         f"\nTotal: {total_entities} | Fresh: {fresh_entities} | Stale: {stale_entities}"

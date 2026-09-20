@@ -5,12 +5,18 @@ from pathlib import Path
 import structlog
 import typer
 
-from code_lod.config import get_paths, load_config
+from code_lod.config import (
+    configure_logging,
+    get_paths,
+    load_config,
+    should_ignore_file,
+)
 from code_lod.models import Scope
+from code_lod.parsers.tree_sitter_parser import get_language_map_extensions
 from code_lod.pipeline import pipeline_generate
 from code_lod.staleness import StalenessTracker
 
-log = structlog.get_logger()
+log = None
 
 
 def generate(
@@ -32,15 +38,31 @@ def generate(
 
     typer.echo(f"Generating descriptions for {path}...")
 
-    # Load configuration
+    # Load configuration and set up logging
     config = load_config(paths)
+    configure_logging(config.log_level)
+    log = structlog.get_logger()
     log.info("config_loaded", provider=config.provider)
 
-    # For now, simple implementation for Python files
-    python_files = list(path.rglob("*.py")) if path.is_dir() else [path]
-    # Filter to actual files only
-    python_files = [f for f in python_files if f.is_file()]
-    log.info("files_found", count=len(python_files))
+    # Collect files for all configured languages
+    files: list[Path] = []
+    if path.is_dir():
+        for lang in config.languages:
+            for ext in get_language_map_extensions(lang):
+                files.extend(path.rglob(f"*{ext}"))
+    else:
+        files = [path]
+
+    # Filter to actual files only, deduplicate, and apply ignore patterns
+    files = list(
+        {
+            f
+            for f in files
+            if f.is_file()
+            and not should_ignore_file(f, paths.root_dir, config.ignore_patterns)
+        }
+    )
+    log.info("files_found", count=len(files))
 
     tracker = StalenessTracker(paths.root_dir)
     from code_lod.llm.description_generator.generator import get_generator
@@ -49,7 +71,7 @@ def generate(
 
     # Use pipeline for parallel processing
     total_generated, total_skipped = pipeline_generate(
-        files=python_files,
+        files=files,
         root_dir=paths.root_dir,
         paths=paths,
         config=config,

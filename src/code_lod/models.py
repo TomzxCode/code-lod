@@ -1,7 +1,7 @@
 """Data models for code-lod."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, UTC
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -62,8 +62,8 @@ class DescriptionEntity(BaseModel):
     hash: str = Field(..., description="SHA-256 hash of the normalized AST")
     description: str = Field(..., description="LLM-generated description")
     stale: bool = Field(default=False, description="Whether the description is stale")
-    created_at: datetime = Field(default_factory=datetime.utcnow)
-    updated_at: datetime = Field(default_factory=datetime.utcnow)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     hash_history: list[str] = Field(
         default_factory=list, description="Previous hashes for revert detection"
     )

@@ -339,7 +339,7 @@ def pipeline_generate(
         total_files=len(files), max_workers=effective_max_parallelism
     )
     completion_tracker = FileCompletionTracker()
-    entity_queue: Queue[ParsedEntityWithFile] = Queue()
+    entity_queue: Queue[ParsedEntityWithFile | None] = Queue()
     file_languages: dict[Path, str] = {}
     file_entity_counts: dict[Path, int] = {}
 
@@ -456,78 +456,6 @@ def pipeline_generate(
         # Signal end of entities to LLM workers
         for _ in range(effective_max_parallelism):
             entity_queue.put(None)
-
-    # Signal end of entities
-    for _ in range(effective_max_parallelism):
-        entity_queue.put(None)  # Sentinel values
-
-    # Phase 2: Generate descriptions in parallel
-    active_llm_workers = 0
-    llm_worker_lock = threading.Lock()
-
-    def llm_worker() -> None:
-        """Worker that pulls entities and generates descriptions."""
-        nonlocal total_generated, total_skipped, active_llm_workers
-
-        while True:
-            ewc = entity_queue.get()
-            if ewc is None:
-                break
-
-            # Increment active workers
-            with llm_worker_lock:
-                active_llm_workers += 1
-                progress.set_active_llm_workers(active_llm_workers)
-
-            try:
-                result = generate_description(ewc, generator, tracker)
-
-                with threading.Lock():
-                    if result.was_generated:
-                        total_generated += 1
-                        progress.increment_descriptions_generated()
-                    else:
-                        total_skipped += 1
-
-                # Check if file is complete
-                if completion_tracker.add_result(result):
-                    # File complete, write LOD file
-                    file_path = result.file_path
-                    results = completion_tracker.get_file_results(file_path)
-                    module_desc = completion_tracker.get_module_description(file_path)
-
-                    # Filter out module entity from results
-                    entity_desc_pairs = [
-                        (r.entity, r.description)
-                        for r in results
-                        if r.entity.scope != Scope.MODULE
-                    ]
-
-                    if entity_desc_pairs or module_desc is not None:
-                        lod_path = paths.lod_dir / file_path.relative_to(root_dir)
-                        lod_path = lod_path.with_suffix(lod_path.suffix + ".lod")
-                        write_lod_file(
-                            lod_path,
-                            entity_desc_pairs,
-                            file_languages[file_path],
-                            module_desc,
-                        )
-                        progress.increment_lod_files_written()
-
-            except Exception as e:
-                print(f"\nError generating for {ewc.entity.name}: {e}", file=sys.stderr)
-
-            finally:
-                # Decrement active workers
-                with llm_worker_lock:
-                    active_llm_workers -= 1
-                    progress.set_active_llm_workers(active_llm_workers)
-
-            entity_queue.task_done()
-
-    # Start LLM workers
-    with ThreadPoolExecutor(max_workers=effective_max_parallelism) as llm_executor:
-        list(llm_executor.map(lambda _: llm_worker(), range(effective_max_parallelism)))
 
     progress.finalize_display()
     return total_generated, total_skipped
