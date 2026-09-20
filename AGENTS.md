@@ -1,10 +1,10 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+This file provides guidance to AI coding agents when working with code in this repository.
 
 ## Rules
 
-- Always update the `CLAUDE.md`, `README.md`, `docs/`, and `spec/` files when there are significant changes to the codebase or architecture.
+- Always update the `AGENTS.md`, `README.md`, `docs/`, and `spec/` files when there are significant changes to the codebase or architecture.
 
 ## Common Commands
 
@@ -42,9 +42,9 @@ Code LoD is a CLI tool that generates and manages code descriptions at different
 
 2. **Hashing** (`hashing.py`): AST hashes are computed on normalized source to detect semantic changes. Hash format: `sha256:<hexdigest>`.
 
-3. **Staleness Tracking** (`staleness.py`): `StalenessTracker` uses the hash index to determine if descriptions need regeneration.
+3. **Staleness Tracking** (`staleness.py`): `StalenessTracker` uses the hash index to determine if descriptions need regeneration. Staleness is detected by comparing the current AST hash against the index (missing or marked-stale means stale).
 
-4. **Generation** (`llm/description_generator/`): LLM provider implementations (OpenAI, Anthropic, Ollama, Mock) with auto-detection from environment variables and scope-specific model selection.
+4. **Generation** (`llm/description_generator/`, `pipeline.py`): LLM provider implementations (OpenAI, Anthropic, Ollama, Mock) with auto-detection from environment variables and scope-specific model selection. `pipeline.py` runs scanning and LLM generation in parallel thread pools and writes `.lod` files as each file's entities complete.
 
 5. **Storage** (`db.py`, `lod_file/`): Dual storage system:
    - SQLite database (`hash_index.db`) for metadata and caching
@@ -75,6 +75,7 @@ src/code_lod/
 ├── db.py               # SQLite hash index
 ├── hashing.py          # AST hash computation
 ├── models.py           # Pydantic data models
+├── pipeline.py         # Parallel scanning + generation pipeline
 ├── staleness.py        # StalenessTracker
 ├── llm/
 │   ├── __init__.py
@@ -100,10 +101,15 @@ src/code_lod/
 ### Configuration
 
 Stored in `.code-lod/config.json`:
-- `languages`: List of supported languages
+- `languages`: List of supported languages (validated against tree-sitter LANGUAGE_MAP)
 - `provider`: LLM provider (openai, anthropic, ollama, mock)
 - `model_settings`: Hierarchical model configuration per scope
   - Supports different models for different scopes (project, package, module, class, function)
+- `max_parallelism`: Maximum number of parallel LLM requests (default 8)
+- `ignore_patterns`: Glob patterns for files to skip (tests, caches, venvs, etc.)
+- `log_level`: Logging verbosity (debug, info, warning, error, critical)
+
+Config files are validated on load; invalid values raise `ValueError` with a clear message. `generate` and `update` only scan files matching configured languages that pass `ignore_patterns`.
 
 Provider auto-detection: Checks `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` environment variables. Falls back to mock if none found.
 
